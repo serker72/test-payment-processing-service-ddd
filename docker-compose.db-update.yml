@@ -43,7 +43,7 @@ services:
       - pgbouncer
 
   db-update:
-    image: payment-processing-backend:latest
+    image: payment-processing-backend-ddd:latest
     container_name: payment-processing-ddd-db-update
     command: bash -c "alembic upgrade head"
     restart: "no"
