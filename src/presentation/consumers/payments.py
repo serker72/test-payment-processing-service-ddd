@@ -4,6 +4,8 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any, Dict
 
+from dishka import Provider, Scope, make_async_container, provide
+from dishka_faststream import FastStreamProvider, FromDishka, setup_dishka
 from faststream.middlewares.acknowledgement.config import AckPolicy
 from faststream.rabbit import ExchangeType, QueueType, RabbitBroker, RabbitExchange, RabbitQueue
 from faststream.rabbit.annotations import RabbitMessage
@@ -13,8 +15,12 @@ from src.domain.entities import PaymentEntity, PaymentStatuses
 from src.domain.exceptions import WebhookDeliveryError
 from src.domain.interfaces.services import IPaymentService, IWebhookService
 from src.infrastructure.config.settings import settings
-from src.infrastructure.database.sessions.base import get_session_context
-from src.infrastructure.ioc import get_payment_repository, get_payment_service, get_webhook_service
+from src.infrastructure.ioc import (
+    DatabaseProvider,
+    PaymentRepositoryProvider,
+    PaymentServiceProvider,
+    WebhookServiceProvider,
+)
 
 
 class PaymentsConsumer:
@@ -69,9 +75,23 @@ class PaymentsConsumer:
             raise
 
 
-payments_consumer = PaymentsConsumer()
+class PaymentsConsumerProvider(Provider):
+    @provide(scope=Scope.REQUEST)
+    async def provide_payment_consumer(self) -> PaymentsConsumer:
+        return PaymentsConsumer()
+
+
 broker = RabbitBroker(settings.get_rabbitmq_url())
-webhook_service = get_webhook_service()
+
+container = make_async_container(
+    DatabaseProvider(),
+    PaymentRepositoryProvider(),
+    PaymentServiceProvider(),
+    WebhookServiceProvider(),
+    PaymentsConsumerProvider(),
+    FastStreamProvider(),
+)
+setup_dishka(container, broker=broker, auto_inject=True)
 
 payment_exchange = RabbitExchange(settings.consumer_exchange_name, type=ExchangeType.TOPIC, durable=True)
 dlx_exchange = RabbitExchange(settings.consumer_dlx_exchange_name, type=ExchangeType.FANOUT, durable=True)
@@ -104,12 +124,15 @@ dlq_queue = RabbitQueue(
 
 
 @broker.subscriber(queue=payment_queue, exchange=payment_exchange, ack_policy=AckPolicy.NACK_ON_ERROR)
-async def payment_new_handler(message: Dict[str, Any], raw_message: RabbitMessage) -> None:
+async def payment_new_handler(
+    message: Dict[str, Any],
+    raw_message: RabbitMessage,
+    payments_consumer: FromDishka[PaymentsConsumer],
+    payment_service: FromDishka[IPaymentService],
+    webhook_service: FromDishka[IWebhookService],
+) -> None:
     """Обработка события в очереди RabbitMQ `payments.new`"""
-    async with get_session_context() as session:
-        return await payments_consumer.payment_new_processing(
-            message, get_payment_service(get_payment_repository(session)), webhook_service
-        )
+    return await payments_consumer.payment_new_processing(message, payment_service, webhook_service)
 
 
 @broker.subscriber(queue=dlq_queue, exchange=dlx_exchange)
@@ -129,7 +152,7 @@ async def run_consumer() -> None:
     except KeyboardInterrupt:
         logger.info("Main task keyboard interrupt")
     finally:
-        logger.info("Consumer shutdowning...")  # завершается
+        logger.info("Consumer shutdowning...")
         await broker.stop()
         logger.info("Consumer stopped")
 

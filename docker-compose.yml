@@ -69,6 +69,19 @@ services:
       retries: 3
     restart: always
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.76.0
+    container_name: payment-processing-ddd-jaeger
+    ports:
+      - "16686:16686"  # Порт для Jaeger UI
+      - "14268:14268"  # Порт для приёма spans (можно оставить, если не используете хранилище)
+      - "4317:4317"   # OpenTelemetry gRPC
+      - "4318:4318"   # OpenTelemetry HTTP
+      - "9411:9411"  # Порт для совместимости с Zipkin
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411  # Включение совместимости
+    restart: unless-stopped
+
   wait-for-services:
     image: atkrad/wait4x
     container_name: payment-processing-ddd-wait-for-services
