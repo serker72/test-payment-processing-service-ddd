@@ -62,6 +62,10 @@ class AppSettings(BaseSettings):
     consumer_dlq_queue_name: str = Field("payments.new.dlq")
     consumer_dlq_queue_message_ttl: int = Field(604800000)
 
+    # opentelemetry
+    collector_host: str = Field("jaeger")
+    collector_port: int = Field(4348)
+
     def get_redis_url(self) -> str:
         """Получение URL подключения к серверу Redis"""
         if self.redis_password:

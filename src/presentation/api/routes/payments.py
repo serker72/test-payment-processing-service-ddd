@@ -1,3 +1,4 @@
+from dishka.integrations.fastapi import DishkaRoute, FromDishka
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from idemptx import idempotent
 
@@ -5,20 +6,19 @@ from src.domain.entities import PaymentEntity, PaymentStatuses
 from src.domain.interfaces.services import IPaymentService
 from src.infrastructure.config.settings import settings
 from src.infrastructure.external.redis import async_idemptx_backend
-from src.infrastructure.ioc import get_payment_service
 from src.presentation.api.routes.outbox import outbox_router
 from src.presentation.api.schemas.payments import PaymentCreateRequest, PaymentCreateResponse, PaymentResponse
 from src.presentation.utils.helpers import custom_json
 
-payment_router = APIRouter(prefix="/payments", tags=["Payments"])
+payment_router = APIRouter(prefix="/payments", tags=["Payments"], route_class=DishkaRoute)
 
 
-@payment_router.post("/", response_model=PaymentCreateResponse)
+@payment_router.post("", response_model=PaymentCreateResponse)
 @idempotent(storage_backend=async_idemptx_backend)
 async def create_payment(
     data: PaymentCreateRequest,
     request: Request,
-    service: IPaymentService = Depends(get_payment_service),
+    service: FromDishka[IPaymentService],
 ):
     """Создание нового платежа"""
     entity: PaymentEntity = await service.create(
@@ -40,7 +40,10 @@ async def create_payment(
 
 
 @payment_router.get("/{payment_id}", response_model=PaymentResponse)
-async def retrieve_payment(payment_id: str, service: IPaymentService = Depends(get_payment_service)):
+async def retrieve_payment(
+    payment_id: str,
+    service: FromDishka[IPaymentService],
+):
     """Получение данных платежа"""
     entity = await service.retrieve(payment_id)
     if not entity:

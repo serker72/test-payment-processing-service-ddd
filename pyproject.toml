@@ -1,6 +1,6 @@
 [project]
 name = "payment-processing-service-ddd"
-version = "0.1.0"
+version = "0.1.1"
 description = "Test Tasks: Payment Processing Service DDD"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -9,8 +9,6 @@ dependencies = [
     "alembic>=1.18.4",
     "asyncpg>=0.31.0",
     "fastapi>=0.138.0",
-    "faststream[cli]>=0.7.1",
-    "faststream-outbox>=0.10.4",
     "httpx>=0.28.1",
     "idemptx>=0.2.2",
     "isodate>=0.7.2",
@@ -22,4 +20,16 @@ dependencies = [
     "sqlalchemy-serializer>=1.6.3",
     "uvicorn>=0.49.0",
     "uvloop>=0.22.1",
+    "opentelemetry-api>=1.43.0",
+    "opentelemetry-sdk>=1.43.0",
+    "opentelemetry-instrumentation-requests>=0.64b0",
+    "opentelemetry-instrumentation-fastapi>=0.64b0",
+    "opentelemetry-exporter-otlp-proto-http>=1.43.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.43.0",
+    "tomlkit>=0.15.0",
+    "tomlkit-extras>=0.2.0",
+    "dishka>=1.10.1",
+    "faststream>=0.7.1",
+    "faststream-outbox>=0.10.4",
+    "dishka-faststream>=0.7.0",
 ]
